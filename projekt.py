@@ -9,7 +9,7 @@ from keras.optimizers import Adam
 from keras.utils import np_utils
 from sklearn import metrics
 
-data, sampling_rate = librosa.load('../data/Train/2022.wav')
+data, sampling_rate = librosa.load('data/Train/2022.wav')
 
 def parser(row):
     # function to load files and extract features

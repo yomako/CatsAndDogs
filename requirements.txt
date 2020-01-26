@@ -1,0 +1,4 @@
+librosa
+numpy
+keras
+h5py

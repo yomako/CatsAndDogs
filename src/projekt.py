@@ -1,5 +1,6 @@
 import librosa
-import os
+from os import listdir
+from os.path import isfile, join
 from sklearn.preprocessing import LabelEncoder
 from sklearn import metrics
 import numpy as np
@@ -9,43 +10,42 @@ from keras.layers import Convolution2D, MaxPooling2D
 from keras.optimizers import Adam
 from keras.utils import np_utils
 import sys
+from playsound import playsound
+
+
+DATA_FOLDER  = "../input/audio-cats-and-dogs/cats_dogs/train/cat/"
 
 
 def audio2array(file_name):
 
-    # handle exception to check if there isn't a file which is corrupted
-    try:
-        # here kaiser_fast is a technique used for faster extraction
-        data, sample_rate = librosa.load(file_name, res_type='kaiser_fast') 
-        # we extract mfcc feature from data
-        mfccs = np.mean(librosa.feature.mfcc(y=data, sr=sample_rate, n_mfcc=40).T,axis=0)
-    except Exception as e:
-        print("Error encountered while parsing file: ", file)
-        return None, None
+    # here kaiser_fast is a technique used for faster extraction
+    [data, sample_rate] = librosa.load(file_name, res_type='kaiser_fast') 
 
-    feature = mfccs
-    label = row.Class
+    # we extract mfcc feature from data
+    feature = np.mean(librosa.feature.mfcc(y=data, sr=sample_rate, n_mfcc=40), axis=1).T #40 values
+    if ('cat' in file_name):
+        label = 0
+    elif ('dog' in file_name):
+        label = 1
 
     return [feature, label]
-
-    temp = train.apply(audio2array, axis=1)
-    temp.columns = ['feature', 'label']
-
-    X = np.array(temp.feature.tolist())
-    Y = np.array(temp.label.tolist())
-
-    lb = LabelEncoder()
-
-    Y = np_utils.to_categorical(lb.fit_transform(y))
-
-    num_labels = y.shape[1]
-    filter_size = 2
 
 
 def train():
 
     # function to load files and extract features
-    file_name = os.path.join(os.path.abspath(data_dir), 'Train', str(row.ID) + '.wav')
+    X = np.empty((0,40)); Y = np.empty(0)
+    file_names = [join(DATA_FOLDER, file) for file in listdir(DATA_FOLDER) if isfile(join(DATA_FOLDER, file))]
+    for file_name in file_names:
+        # handle exception to check if there isn't a file which is corrupted
+        try:
+            [x, y] = audio2array(file_name)
+        except Exception as exc:
+            print(f"Error encountered while parsing file\n{exc}")
+            continue
+        X = np.vstack([X,x]); Y = np.vstack([Y,y])
+
+    num_labels  = Y.shape[1]
 
     # build model
     model = Sequential()
@@ -71,13 +71,22 @@ def train():
 
 if __name__ == '__main__':
 
-    # load model
-    model = load_model('model.h5')
+    if (len(sys.argv) != 2):
+        print("Provide test file name and only that!")
+        sys.exit()
+    else:
 
-    # load test file
-    test_file = sys.argv[1]
-    [X,Y] = audio2array(test_file)
+        # load model
+        model = load_model('model.h5')
 
-    # evaluate loaded model on test data
-    score = model.evaluate(X, Y, verbose=0)
-    print(f"{model.metrics_names[1]}: {score[1]:.2}")
+        # load test file
+        file_name = sys.argv[1]
+        [x, y] = audio2array(file_name)
+
+        # evaluate loaded model on test data
+        probabilities = model.predict(x, batch_size=32)
+        label = np.argmax(probabilities)
+        
+        playsound(file_name)
+
+        print(f"I think it is a {label}.\nIt is {y} in fact.")
